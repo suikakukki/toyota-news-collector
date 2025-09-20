@@ -1,0 +1,147 @@
+# .github/workflows/rss-collect.yml
+name: 🚗 Toyota RSS Collection
+
+on:
+  # 定期実行: 4時間毎（JST: 1時, 5時, 9時, 13時, 17時, 21時）
+  schedule:
+    - cron: '0 */4 * * *'
+  
+  # 手動実行を可能にする（テスト用）
+  workflow_dispatch:
+    inputs:
+      execution_mode:
+        description: '実行モード'
+        required: false
+        default: 'normal'
+        type: choice
+        options:
+        - normal
+        - test
+        - debug
+
+env:
+  # タイムゾーンを日本時間に設定
+  TZ: Asia/Tokyo
+
+jobs:
+  collect-toyota-rss:
+    name: 📰 Toyota RSS ニュース収集
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 📂 リポジトリをチェックアウト
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Node.js 18 セットアップ
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 📦 依存関係インストール
+      run: |
+        echo "📦 依存パッケージをインストール中..."
+        npm ci
+        echo "✅ インストール完了"
+        
+    - name: 🔑 Firebase認証情報セットアップ  
+      run: |
+        echo "🔑 Firebase認証情報を設定中..."
+        cat > firebase-key.json << 'EOF'
+        {
+          "type": "service_account",
+          "project_id": "${{ secrets.FIREBASE_PROJECT_ID }}",
+          "private_key_id": "github-actions-key",
+          "private_key": "${{ secrets.FIREBASE_PRIVATE_KEY }}",
+          "client_email": "${{ secrets.FIREBASE_CLIENT_EMAIL }}",
+          "client_id": "github-actions-client",
+          "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+          "token_uri": "https://oauth2.googleapis.com/token",
+          "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
+        }
+        EOF
+        echo "✅ Firebase認証情報セットアップ完了"
+        
+    - name: 📝 環境変数設定
+      run: |
+        echo "📝 環境変数を設定中..."
+        echo "GOOGLE_APPLICATION_CREDENTIALS=./firebase-key.json" > .env
+        echo "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env
+        echo "✅ 環境変数設定完了"
+        
+    - name: 🔍 設定確認（デバッグ）
+      if: github.event.inputs.execution_mode == 'debug'
+      run: |
+        echo "🔍 デバッグ情報:"
+        echo "Node.js バージョン: $(node --version)"
+        echo "npm バージョン: $(npm --version)"
+        echo "現在時刻 (UTC): $(date -u)"
+        echo "現在時刻 (JST): $(TZ=Asia/Tokyo date)"
+        echo "作業ディレクトリ: $(pwd)"
+        echo "ファイル一覧:"
+        ls -la
+        echo "package.json の内容確認:"
+        if [ -f package.json ]; then
+          cat package.json
+        else
+          echo "❌ package.json が見つかりません"
+        fi
+        
+    - name: 🧪 接続テスト（テストモード）
+      if: github.event.inputs.execution_mode == 'test'
+      run: |
+        echo "🧪 Firebase接続テストを実行中..."
+        node test-connection.js
+        
+    - name: 🚀 Toyota RSS収集実行
+      id: rss_collection
+      run: |
+        echo "🚀 Toyota RSS収集を開始します..."
+        echo "⏰ 実行開始時刻: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')"
+        echo "🌍 実行環境: GitHub Actions (ubuntu-latest)"
+        echo ""
+        
+        # RSS収集実行
+        node rss-collector.js
+        
+        echo ""
+        echo "✅ RSS収集が完了しました"
+        echo "⏰ 実行完了時刻: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')"
+        
+    - name: 📊 実行結果サマリー
+      if: always()
+      run: |
+        echo "📊 ===== 実行結果サマリー ====="
+        echo "🕒 実行時刻: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')"
+        echo "⚙️ 実行環境: GitHub Actions"
+        echo "🎯 実行モード: ${{ github.event.inputs.execution_mode || 'scheduled' }}"
+        if [ "${{ steps.rss_collection.outcome }}" = "success" ]; then
+          echo "✅ ステータス: 成功"
+        else
+          echo "❌ ステータス: 失敗"
+        fi
+        echo "🔗 詳細ログ: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        echo "=========================="
+        
+    - name: 🧹 セキュリティクリーンアップ
+      if: always()
+      run: |
+        echo "🧹 セキュリティクリーンアップ中..."
+        # 認証情報ファイルを確実に削除
+        rm -f firebase-key.json
+        rm -f .env
+        echo "✅ クリーンアップ完了"
+        
+    - name: ❌ 失敗時の詳細情報
+      if: failure()
+      run: |
+        echo "❌ 実行に失敗しました。詳細情報:"
+        echo "🕒 失敗時刻: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')"
+        echo "📝 ログファイルの内容確認:"
+        if [ -f npm-debug.log ]; then
+          echo "=== npm-debug.log ==="
+          cat npm-debug.log
+        fi
+        echo "📁 現在のディレクトリ構造:"
+        find . -type f -name "*.js" -o -name "*.json" | head -20

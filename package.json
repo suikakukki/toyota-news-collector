@@ -1,18 +1,41 @@
 {
   "name": "toyota-news-collector",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "1.0.0", 
+  "description": "Toyota RSS news collection system with advanced duplicate detection",
+  "main": "rss-collector.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node rss-collector.js",
+    "test": "node test-connection.js",
+    "scheduler": "node scheduler.js",
+    "collect": "node rss-collector.js",
+    "setup": "npm install && echo 'Setup complete! Ready for RSS collection.'"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "toyota",
+    "rss",
+    "news",
+    "collector",
+    "firebase",
+    "automation"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
-    "crypto": "^1.0.1",
-    "dotenv": "^16.5.0",
-    "firebase-admin": "^13.4.0",
-    "rss-parser": "^3.13.0"
-  }
+    "dotenv": "^16.0.3",
+    "firebase-admin": "^11.5.0", 
+    "rss-parser": "^3.13.0",
+    "node-cron": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/toyota-news-collector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/toyota-news-collector.git/issues"
+  },
+  "homepage": "https://github.com/YOUR_USERNAME/toyota-news-collector.git#readme"
 }
